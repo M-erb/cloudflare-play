@@ -20,7 +20,9 @@
 		"db:studio": "drizzle-kit studio",
 		"deploy": "npm run build && wrangler deploy",
 		"cf-typegen": "wrangler types ./src/worker-configuration.d.ts",
-		"prettier": "prettier --write ."
+		"wrangler": "wrangler",
+		"cf:migrate": "wrangler d1 migrations apply cf-play-db",
+		"cf:migrate_remote": "wrangler d1 migrations apply cf-play-db --remote"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
