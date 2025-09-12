@@ -3,7 +3,6 @@ import { encodeBase32LowerCase } from '@oslojs/encoding'
 import { fail, redirect } from '@sveltejs/kit'
 import { eq } from 'drizzle-orm'
 import * as auth from '$lib/server/auth'
-import { db } from '$lib/server/db'
 import * as table from '$lib/server/db/schema'
 import type { Actions, PageServerLoad } from './$types'
 
@@ -15,8 +14,8 @@ export const load: PageServerLoad = async event => {
 }
 
 export const actions: Actions = {
-	login: async event => {
-		const formData = await event.request.formData()
+	login: async ({ locals, cookies, request }) => {
+		const formData = await request.formData()
 		const username = formData.get('username')
 		const password = formData.get('password')
 
@@ -29,7 +28,10 @@ export const actions: Actions = {
 			return fail(400, { message: 'Invalid password (min 6, max 255 characters)' })
 		}
 
-		const results = await db.select().from(table.user).where(eq(table.user.username, username))
+		const results = await locals.db
+			.select()
+			.from(table.user)
+			.where(eq(table.user.username, username))
 
 		const existingUser = results.at(0)
 		if (!existingUser) {
@@ -42,13 +44,13 @@ export const actions: Actions = {
 		}
 
 		const sessionToken = auth.generateSessionToken()
-		const session = await auth.createSession(sessionToken, existingUser.id)
-		auth.setSessionTokenCookie(event, sessionToken, session.expiresAt)
+		const session = await auth.createSession(sessionToken, existingUser.id, locals.db)
+		auth.setSessionTokenCookie(cookies, sessionToken, session.expiresAt)
 
 		return redirect(302, '/demo/lucia')
 	},
-	register: async event => {
-		const formData = await event.request.formData()
+	register: async ({ locals, cookies, request }) => {
+		const formData = await request.formData()
 		const username = formData.get('username')
 		const password = formData.get('password')
 
@@ -63,11 +65,11 @@ export const actions: Actions = {
 		const passwordHash = await hash(password)
 
 		try {
-			await db.insert(table.user).values({ id: userId, username, passwordHash })
+			await locals.db.insert(table.user).values({ id: userId, username, passwordHash })
 
 			const sessionToken = auth.generateSessionToken()
-			const session = await auth.createSession(sessionToken, userId)
-			auth.setSessionTokenCookie(event, sessionToken, session.expiresAt)
+			const session = await auth.createSession(sessionToken, userId, locals.db)
+			auth.setSessionTokenCookie(cookies, sessionToken, session.expiresAt)
 		} catch {
 			return fail(500, { message: 'An error has occurred' })
 		}
